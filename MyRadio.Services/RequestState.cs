@@ -12,7 +12,7 @@ namespace MyRadio.Services
     /// </summary>
     public class RequestState
     {
-        public readonly int BufferSize { get; private set; }
+        public int BufferSize { get; private set; }
         public StringBuilder ResponseContent { get; set; }
         public byte[] BufferRead { get; set; }
         public HttpWebRequest Request { get; set; }

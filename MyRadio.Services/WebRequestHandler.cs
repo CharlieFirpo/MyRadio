@@ -8,10 +8,10 @@ using System.Threading;
 
 namespace MyRadio.Services
 {
-    public class WebRequestHandler
+    public class WebRequestHandler : IWebRequestHandler
     { 
-        public Action<string> AsyncResponseArrived;
-        public Action<Exception> Error;
+        public event Action<string> AsyncResponseArrived;
+        public event Action<Exception> Error;
         public string AsyncResponseContent { get; private set; }
         private ManualResetEvent m_Reset = new ManualResetEvent(false);
 
@@ -20,7 +20,7 @@ namespace MyRadio.Services
         /// </summary>
         /// <param name="url">The Url for the request</param>
         /// <returns>The response string</returns>
-        public static string MakeWebRequest(string url)
+        public string MakeWebRequest(string url)
         {
             try
             {
@@ -112,13 +112,12 @@ namespace MyRadio.Services
                 {
                     if (state.ResponseContent.Length > 0)
                     {
-                        // fire event, fill prop
+                        // fill prop, fire event
                         AsyncResponseContent = state.ResponseContent.ToString();
-                        OnAsyncResponseArrived(state.ResponseContent.ToString());
+                        state.ResponseStream.Close();
+                        m_Reset.Set();
+                        OnAsyncResponseArrived(AsyncResponseContent);
                     }
-
-                    state.ResponseStream.Close();
-                    m_Reset.Set();
                 }
             }
             catch (Exception ex)

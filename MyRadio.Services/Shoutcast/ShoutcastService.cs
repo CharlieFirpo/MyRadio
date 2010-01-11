@@ -25,7 +25,8 @@ namespace MyRadio.Services.Shoutcast
         /// <returns>A List of ShoutcastGenre objects</returns>
         public List<ShoutcastGenre> GetGenres()
         {
-            string response = WebRequestHandler.MakeWebRequest(m_GenresUrl + "?rss=1");
+            WebRequestHandler wrh = new WebRequestHandler();
+            string response = wrh.MakeWebRequest(m_GenresUrl + "?rss=1");
             m_Genres = ParseGenres(response);
             return m_Genres;
         }
@@ -76,7 +77,8 @@ namespace MyRadio.Services.Shoutcast
         /// <returns>A List of ShoutcastStation objects</returns>
         public List<ShoutcastStation> GetStationsByGenre(string genreName)
         {
-            string response = WebRequestHandler.MakeWebRequest(m_StationsByGenreUrl + genreName);
+            WebRequestHandler wrh = new WebRequestHandler();
+            string response = wrh.MakeWebRequest(m_StationsByGenreUrl + genreName);
             return ParseStations(response);
         }
 
