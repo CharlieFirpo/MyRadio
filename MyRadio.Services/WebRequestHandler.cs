@@ -9,11 +9,10 @@ using System.Threading;
 namespace MyRadio.Services
 {
     public class WebRequestHandler : IWebRequestHandler
-    { 
+    {
         public event Action<string> AsyncResponseArrived;
         public event Action<Exception> Error;
         public string AsyncResponseContent { get; private set; }
-        private ManualResetEvent m_Reset = new ManualResetEvent(false);
 
         /// <summary>
         /// Makes a simple synchronous "GET" request and returns the response string
@@ -24,26 +23,35 @@ namespace MyRadio.Services
         {
             try
             {
+                string responseContent;
                 HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
                 request.Method = "GET";
                 request.Proxy = null;
 
                 using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
                 {
-                    Stream responseStream = response.GetResponseStream();
-                    using (StreamReader sr = new StreamReader(responseStream))
+                    using (Stream responseStream = response.GetResponseStream())
                     {
-                        string responseContent = sr.ReadToEnd();
-                        return responseContent;
+                        using (StreamReader sr = new StreamReader(responseStream))
+                            responseContent = sr.ReadToEnd();
                     }
                 }
+
+                return responseContent;
             }
             catch (Exception ex)
             {
-                return ex.Message;
+                OnError(ex);
+                return String.Empty;
             }
         }
 
+        /// <summary>
+        /// Makes an asynchronous "GET" request.
+        /// Use "AsyncResponseArrived" event to receive the response data.
+        /// </summary>
+        /// <param name="url">The Url for the request</param>
+        /// <param name="timeOut">Timeout value in milliseconds</param>
         public void MakeWebRequestAsync(string url, int timeOut)
         {
             try
@@ -59,10 +67,6 @@ namespace MyRadio.Services
 
                 ThreadPool.RegisterWaitForSingleObject(result.AsyncWaitHandle,
                     new WaitOrTimerCallback(TimeOutCallback), request, timeOut, true);
-
-                m_Reset.WaitOne();
-
-                state.Response.Close();
             }
             catch (Exception ex)
             {
@@ -84,12 +88,12 @@ namespace MyRadio.Services
                 // Begin the reading of the contents of the HTML page and print it to the console.
                 IAsyncResult readResult = responseStream.BeginRead(state.BufferRead,
                     0, state.BufferSize, new AsyncCallback(ReadCallback), state);
-
-                return;
             }
             catch (Exception ex)
             {
-                m_Reset.Set();
+                RequestState state = (RequestState)result.AsyncState;
+                if (state.Response != null)
+                    state.Response.Close();
                 OnError(ex);
             }
         }
@@ -106,7 +110,6 @@ namespace MyRadio.Services
                     state.ResponseContent.Append(Encoding.ASCII.GetString(state.BufferRead, 0, bytesRead));
                     state.ResponseStream.BeginRead(state.BufferRead, 0, state.BufferSize,
                         new AsyncCallback(ReadCallback), state);
-                    return;
                 }
                 else
                 {
@@ -115,13 +118,16 @@ namespace MyRadio.Services
                         // fill prop, fire event
                         AsyncResponseContent = state.ResponseContent.ToString();
                         state.ResponseStream.Close();
-                        m_Reset.Set();
+                        state.Response.Close();
                         OnAsyncResponseArrived(AsyncResponseContent);
                     }
                 }
             }
             catch (Exception ex)
             {
+                RequestState state = (RequestState)result.AsyncState;
+                if (state.Response != null)
+                    state.Response.Close();
                 OnError(ex);
             }
         }
