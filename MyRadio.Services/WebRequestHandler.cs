@@ -74,18 +74,22 @@ namespace MyRadio.Services
             }
         }
 
+        /// <summary>
+        /// Callback to process the WebResponse
+        /// </summary>
+        /// <param name="result">RequestState</param>
         private void ResponseCallback(IAsyncResult result)
         {
             try
             {
                 RequestState state = (RequestState)result.AsyncState;
                 HttpWebRequest request = state.Request;
-                // End the Asynchronous response
+                // End the Asynchronous response and get the actual resonse object
                 state.Response = (HttpWebResponse)request.EndGetResponse(result);
                 Stream responseStream = state.Response.GetResponseStream();
                 state.ResponseStream = responseStream;
 
-                // Begin the reading of the contents of the HTML page and print it to the console.
+                // Begin async reading of the contents
                 IAsyncResult readResult = responseStream.BeginRead(state.BufferRead,
                     0, state.BufferSize, new AsyncCallback(ReadCallback), state);
             }
@@ -98,25 +102,33 @@ namespace MyRadio.Services
             }
         }
 
+        /// <summary>
+        /// Callback to read the response stream
+        /// </summary>
+        /// <param name="result">RequestState</param>
         private void ReadCallback(IAsyncResult result)
         {
             try
             {
                 RequestState state = (RequestState)result.AsyncState;
+                // determine how many bytes have been read
                 int bytesRead = state.ResponseStream.EndRead(result);
 
-                if (bytesRead > 0)
+                if (bytesRead > 0) // stream has not reached the end yet
                 {
+                    // append the read data to the ResponseContent and...
                     state.ResponseContent.Append(Encoding.ASCII.GetString(state.BufferRead, 0, bytesRead));
+                    // ...read the next piece of data from the stream
                     state.ResponseStream.BeginRead(state.BufferRead, 0, state.BufferSize,
                         new AsyncCallback(ReadCallback), state);
                 }
-                else
+                else // end of the stream reached
                 {
                     if (state.ResponseContent.Length > 0)
                     {
                         // fill prop, fire event
                         AsyncResponseContent = state.ResponseContent.ToString();
+                        // close the stream and the response
                         state.ResponseStream.Close();
                         state.Response.Close();
                         OnAsyncResponseArrived(AsyncResponseContent);
@@ -132,6 +144,11 @@ namespace MyRadio.Services
             }
         }
 
+        /// <summary>
+        /// Callback to abort the WebRequest when triggered
+        /// </summary>
+        /// <param name="state">WebRequest</param>
+        /// <param name="timedOut"></param>
         private void TimeOutCallback(object state, bool timedOut)
         {
             if (timedOut)
